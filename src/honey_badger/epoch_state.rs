@@ -176,6 +176,17 @@ impl<N> From<SubsetHandlingStrategy> for SubsetHandler<N> {
     }
 }
 
+/// A parameter to enable or disable encryption or "every n-th" round.
+#[derive(Debug, Clone)]
+pub enum EncryptionSchedule {
+    /// Allways encrypt.
+    Always,
+    /// Never encrypt.
+    Never,
+    /// "every n-th" round.
+    EveryNthEpoch(u64),
+}
+
 /// The sub-algorithms and their intermediate results for a single epoch.
 #[derive(Debug)]
 pub struct EpochState<C, N: Rand> {
@@ -191,6 +202,8 @@ pub struct EpochState<C, N: Rand> {
     accepted_proposers: BTreeSet<N>,
     /// Determines the behavior upon receiving proposals from `subset`.
     subset_handler: SubsetHandler<N>,
+    /// EncryptionSchedule
+    encryption_schedule: EncryptionSchedule,
     _phantom: PhantomData<C>,
 }
 
@@ -204,6 +217,7 @@ where
         netinfo: Arc<NetworkInfo<N>>,
         epoch: u64,
         subset_handling_strategy: SubsetHandlingStrategy,
+        encryption_schedule: EncryptionSchedule,
     ) -> Result<Self> {
         let cs = Subset::new(netinfo.clone(), epoch).map_err(ErrorKind::CreateSubset)?;
         Ok(EpochState {
@@ -213,6 +227,7 @@ where
             decryption: BTreeMap::default(),
             accepted_proposers: Default::default(),
             subset_handler: subset_handling_strategy.into(),
+            encryption_schedule,
             _phantom: PhantomData,
         })
     }
@@ -314,8 +329,16 @@ where
                 is_done,
             } = self.subset_handler.handle(cs_output);
 
+            let send_encryption = match self.encryption_schedule {
+                EncryptionSchedule::Always => true,
+                EncryptionSchedule::Never => false,
+                EncryptionSchedule::EveryNthEpoch(nth) => self.epoch % nth == 0,
+            };
+
             for (k, v) in contributions {
-                step.extend(self.send_decryption_share(k.clone(), &v)?);
+                if send_encryption {
+                    step.extend(self.send_decryption_share(k.clone(), &v)?);
+                }
                 self.accepted_proposers.insert(k);
             }
 

@@ -8,7 +8,7 @@ use rand::{self, Rand, Rng};
 use serde::{Deserialize, Serialize};
 
 use super::{ChangeState, DynamicHoneyBadger, JoinPlan, Result, Step, VoteCounter};
-use honey_badger::{HoneyBadger, SubsetHandlingStrategy};
+use honey_badger::{EncryptionSchedule, HoneyBadger, SubsetHandlingStrategy};
 use util::SubRng;
 use {Contribution, NetworkInfo, NodeIdT};
 
@@ -22,6 +22,8 @@ pub struct DynamicHoneyBadgerBuilder<C, N> {
     rng: Box<dyn rand::Rng>,
     /// Strategy used to handle the output of the `Subset` algorithm.
     subset_handling_strategy: SubsetHandlingStrategy,
+    /// Threshold encryption schedule
+    encryption_schedule: EncryptionSchedule,
     _phantom: PhantomData<(C, N)>,
 }
 
@@ -32,6 +34,7 @@ impl<C, N> Default for DynamicHoneyBadgerBuilder<C, N> {
             max_future_epochs: 3,
             rng: Box::new(rand::thread_rng()),
             subset_handling_strategy: SubsetHandlingStrategy::Incremental,
+            encryption_schedule: EncryptionSchedule::Always,
             _phantom: PhantomData,
         }
     }
@@ -69,12 +72,19 @@ where
         self
     }
 
+    /// Sets the strategy to use when handling `Subset` output.
+    pub fn encryption_schedule(&mut self, encryption_schedule: EncryptionSchedule) -> &mut Self {
+        self.encryption_schedule = encryption_schedule;
+        self
+    }
+
     /// Creates a new Dynamic Honey Badger instance with an empty buffer.
     pub fn build(&mut self, netinfo: NetworkInfo<N>) -> DynamicHoneyBadger<C, N> {
         let DynamicHoneyBadgerBuilder {
             max_future_epochs,
             rng,
             subset_handling_strategy,
+            encryption_schedule,
             _phantom,
         } = self;
         let max_future_epochs = *max_future_epochs;
@@ -83,6 +93,7 @@ where
             .max_future_epochs(max_future_epochs)
             .rng(rng.sub_rng())
             .subset_handling_strategy(subset_handling_strategy.clone())
+            .encryption_schedule(encryption_schedule.clone())
             .build();
         DynamicHoneyBadger {
             netinfo,
