@@ -329,16 +329,8 @@ where
                 is_done,
             } = self.subset_handler.handle(cs_output);
 
-            let send_encryption = match self.encryption_schedule {
-                EncryptionSchedule::Always => true,
-                EncryptionSchedule::Never => false,
-                EncryptionSchedule::EveryNthEpoch(nth) => self.epoch % nth == 0,
-            };
-
             for (k, v) in contributions {
-                if send_encryption {
-                    step.extend(self.send_decryption_share(k.clone(), &v)?);
-                }
+                step.extend(self.send_decryption_share(k.clone(), &v)?);
                 self.accepted_proposers.insert(k);
             }
 
