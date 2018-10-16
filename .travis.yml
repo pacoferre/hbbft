@@ -14,21 +14,11 @@ before_install:
     fi
   - rustup component add --toolchain=$TRAVIS_RUST_VERSION rustfmt-preview clippy-preview
   - cargo deadlinks --version || cargo install cargo-deadlinks
+  - cargo audit --version || cargo install cargo-audit
 # after_failure:
 #   # Outputs the syslog after a failed build, e.g. to debug `SIGILL` occurrences.
 #   # Unfortunately this is likely to disable container-based travis images,
 #   # causing a CI slowdown, so this option is commented out by default. It can
 #   # be enabled per-branch to debug issues.
 #   - sudo tail -n 250 /var/log/syslog
-env:
-  global:
-    - RUST_BACKTRACE=1
-    # Enables additional cpu-specific optimizations.
-    - RUSTFLAGS="-D warnings -C target-cpu=native"
-    - MLOCK_SECRETS=false
-script:
-  - cargo clippy --tests --examples -- --deny clippy
-  - cargo fmt -- --check
-  - cargo test --all-features --release -- --test-threads 1
-  - cargo doc
-  - cargo deadlinks --dir target/doc/hbbft/
+script: ./ci.sh
